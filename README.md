@@ -4,6 +4,12 @@ An end-to-end AI-powered ride optimization platform inspired by Uber and Ola.
 This project combines Machine Learning, Route Optimization, Driver Allocation, and Interactive Visualization into a modern dashboard application.
 
 ---
+# 🚀 Live Demo
+
+🔗 https://uber-ai-project-um3zy9qjhzfp2m3bjxu9ze.streamlit.app/
+
+---
+
 
 # 🌟 Features
 
