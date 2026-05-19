@@ -1,17 +1,20 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import joblib
 import plotly.express as px
 import plotly.graph_objects as go
-from streamlit_option_menu import option_menu
+import joblib
 import networkx as nx
+from streamlit_option_menu import option_menu
+import folium
+from streamlit_folium import st_folium
 
 # PAGE CONFIG
 st.set_page_config(
     page_title="Uber AI System",
     page_icon="🚖",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 # LOAD DATA
@@ -20,90 +23,198 @@ df = pd.read_csv("data/uber.csv")
 # LOAD MODEL
 model = joblib.load("models/fare_prediction_model.pkl")
 
+# CUSTOM CSS
+st.markdown("""
+<style>
+
+/* MAIN APP */
+.stApp {
+    background: linear-gradient(to right, #0B0F19, #111827);
+    color: white;
+}
+
+/* SIDEBAR */
+section[data-testid="stSidebar"] {
+    background: #0B0F19;
+    border-right: 1px solid #1F2937;
+}
+
+/* METRIC CARDS */
+[data-testid="metric-container"] {
+    background: linear-gradient(145deg, #111827, #1F2937);
+    border: 1px solid #374151;
+    padding: 20px;
+    border-radius: 18px;
+    box-shadow: 0px 4px 20px rgba(0,0,0,0.4);
+}
+
+/* TITLES */
+h1, h2, h3, h4 {
+    color: white !important;
+}
+
+/* BUTTONS */
+.stButton>button {
+    background: linear-gradient(to right, #00C6FF, #0072FF);
+    color: white;
+    border-radius: 12px;
+    border: none;
+    padding: 12px 25px;
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+.stButton>button:hover {
+    transform: scale(1.05);
+    background: linear-gradient(to right, #0072FF, #00C6FF);
+}
+
+/* INPUT BOXES */
+.stNumberInput,
+.stSelectbox,
+.stSlider {
+    background-color: #111827;
+    border-radius: 10px;
+}
+
+/* HIDE MENU */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+
+</style>
+""", unsafe_allow_html=True)
+
 # SIDEBAR
 with st.sidebar:
+
+    st.markdown("""
+        <h1 style='text-align:center; color:#00C6FF;'>
+            🚖 Uber AI
+        </h1>
+    """, unsafe_allow_html=True)
+
     selected = option_menu(
-        menu_title="Uber AI Dashboard",
+        menu_title=None,
         options=[
             "Dashboard",
             "Fare Prediction",
+            "Live Maps",
             "Route Optimization",
             "Driver Allocation"
         ],
         icons=[
             "speedometer2",
             "cash-stack",
-            "geo-alt",
-            "person-badge"
+            "map",
+            "geo-alt-fill",
+            "person-workspace"
         ],
-        menu_icon="robot",
         default_index=0,
     )
-
-# CUSTOM CSS
-st.markdown("""
-    <style>
-    .main {
-        background-color: #0E1117;
-    }
-
-    .stMetric {
-        background-color: #1E1E1E;
-        padding: 15px;
-        border-radius: 12px;
-    }
-
-    h1, h2, h3 {
-        color: white;
-    }
-    </style>
-""", unsafe_allow_html=True)
 
 # DASHBOARD PAGE
 if selected == "Dashboard":
 
-    st.title("🚖 Uber AI Ride Optimization Dashboard")
+    st.title("🚖 AI Ride Optimization Dashboard")
 
-    col1, col2, col3 = st.columns(3)
+    st.markdown("### Real-Time Transportation Intelligence System")
+
+    # METRICS
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.metric("Total Rides", len(df))
+        st.metric(
+            "Total Rides",
+            f"{len(df):,}"
+        )
 
     with col2:
-        st.metric("Average Fare", round(df['fare_amount'].mean(), 2))
+        st.metric(
+            "Average Fare",
+            f"${df['fare_amount'].mean():.2f}"
+        )
 
     with col3:
-        st.metric("Max Fare", round(df['fare_amount'].max(), 2))
+        st.metric(
+            "Maximum Fare",
+            f"${df['fare_amount'].max():.2f}"
+        )
+
+    with col4:
+        st.metric(
+            "Total Passengers",
+            f"{df['passenger_count'].sum():,.0f}"
+        )
 
     st.markdown("---")
 
-    # FARE DISTRIBUTION
-    fig = px.histogram(
-        df,
-        x='fare_amount',
-        nbins=50,
-        title="Fare Distribution"
-    )
+    # CHARTS
+    col1, col2 = st.columns(2)
 
-    st.plotly_chart(fig, use_container_width=True)
+    with col1:
 
-    # RIDES BY PASSENGER COUNT
-    fig2 = px.histogram(
-        df,
-        x='passenger_count',
-        title="Passenger Count Analysis"
-    )
+        fig = px.histogram(
+            df,
+            x="fare_amount",
+            nbins=50,
+            title="Fare Distribution"
+        )
 
-    st.plotly_chart(fig2, use_container_width=True)
+        fig.update_layout(
+            template="plotly_dark",
+            paper_bgcolor="#111827",
+            plot_bgcolor="#111827"
+        )
 
-# FARE PREDICTION PAGE
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+
+        fig2 = px.histogram(
+            df,
+            x="passenger_count",
+            title="Passenger Count Analysis"
+        )
+
+        fig2.update_layout(
+            template="plotly_dark",
+            paper_bgcolor="#111827",
+            plot_bgcolor="#111827"
+        )
+
+        st.plotly_chart(fig2, use_container_width=True)
+
+    # RIDES BY HOUR
+    if 'hour' in df.columns:
+
+        st.markdown("## 📈 Peak Ride Hours")
+
+        fig3 = px.line(
+            df.groupby('hour').size().reset_index(name='rides'),
+            x='hour',
+            y='rides',
+            markers=True
+        )
+
+        fig3.update_layout(
+            template="plotly_dark",
+            paper_bgcolor="#111827",
+            plot_bgcolor="#111827"
+        )
+
+        st.plotly_chart(fig3, use_container_width=True)
+
+# FARE PREDICTION
 elif selected == "Fare Prediction":
 
-    st.title("💰 Fare Prediction System")
+    st.title("💰 AI Fare Prediction")
+
+    st.markdown("### Predict ride fares using Machine Learning")
 
     col1, col2 = st.columns(2)
 
     with col1:
+
         pickup_longitude = st.number_input(
             "Pickup Longitude",
             value=-73.985428
@@ -116,15 +227,16 @@ elif selected == "Fare Prediction":
 
         dropoff_longitude = st.number_input(
             "Dropoff Longitude",
-            value=-73.985428
+            value=-73.985130
         )
 
         dropoff_latitude = st.number_input(
             "Dropoff Latitude",
-            value=40.748817
+            value=40.758896
         )
 
     with col2:
+
         passenger_count = st.slider(
             "Passenger Count",
             1,
@@ -132,15 +244,35 @@ elif selected == "Fare Prediction":
             1
         )
 
-        hour = st.slider("Hour", 0, 23, 12)
+        hour = st.slider(
+            "Hour",
+            0,
+            23,
+            12
+        )
 
-        day = st.slider("Day", 1, 31, 15)
+        day = st.slider(
+            "Day",
+            1,
+            31,
+            15
+        )
 
-        month = st.slider("Month", 1, 12, 6)
+        month = st.slider(
+            "Month",
+            1,
+            12,
+            6
+        )
 
-        weekday = st.slider("Weekday", 0, 6, 3)
+        weekday = st.slider(
+            "Weekday",
+            0,
+            6,
+            3
+        )
 
-    if st.button("Predict Fare"):
+    if st.button("🚖 Predict Fare"):
 
         input_data = np.array([[
             pickup_longitude,
@@ -157,13 +289,72 @@ elif selected == "Fare Prediction":
         prediction = model.predict(input_data)
 
         st.success(
-            f"Predicted Fare: ${prediction[0]:.2f}"
+            f"Estimated Fare: ${prediction[0]:.2f}"
         )
 
-# ROUTE OPTIMIZATION PAGE
+# LIVE MAPS
+elif selected == "Live Maps":
+
+    st.title("🗺️ Live GPS Ride Map")
+
+    st.markdown("### Real-Time Pickup & Drop Visualization")
+
+    # MAP CENTER
+    map_center = [40.748817, -73.985428]
+
+    # CREATE MAP
+    m = folium.Map(
+        location=map_center,
+        zoom_start=13,
+        tiles='CartoDB dark_matter'
+    )
+
+    # SAMPLE PICKUP
+    pickup = [40.748817, -73.985428]
+
+    # SAMPLE DROPOFF
+    dropoff = [40.758896, -73.985130]
+
+    # PICKUP MARKER
+    folium.Marker(
+        pickup,
+        popup="Pickup Location",
+        icon=folium.Icon(
+            color='green',
+            icon='play'
+        )
+    ).add_to(m)
+
+    # DROPOFF MARKER
+    folium.Marker(
+        dropoff,
+        popup="Dropoff Location",
+        icon=folium.Icon(
+            color='red',
+            icon='stop'
+        )
+    ).add_to(m)
+
+    # ROUTE LINE
+    folium.PolyLine(
+        [pickup, dropoff],
+        color='cyan',
+        weight=5
+    ).add_to(m)
+
+    # DISPLAY MAP
+    st_folium(
+        m,
+        width=1200,
+        height=600
+    )
+
+# ROUTE OPTIMIZATION
 elif selected == "Route Optimization":
 
-    st.title("🗺️ Route Optimization System")
+    st.title("🗺️ Smart Route Optimization")
+
+    st.markdown("### AI-Powered Shortest Path System")
 
     G = nx.Graph()
 
@@ -174,15 +365,21 @@ elif selected == "Route Optimization":
     G.add_edge('C', 'D', weight=8)
     G.add_edge('D', 'E', weight=2)
 
-    source = st.selectbox(
-        "Select Pickup Location",
-        ['A', 'B', 'C', 'D']
-    )
+    col1, col2 = st.columns(2)
 
-    target = st.selectbox(
-        "Select Destination",
-        ['B', 'C', 'D', 'E']
-    )
+    with col1:
+
+        source = st.selectbox(
+            "Pickup Location",
+            ['A', 'B', 'C', 'D']
+        )
+
+    with col2:
+
+        target = st.selectbox(
+            "Destination",
+            ['B', 'C', 'D', 'E']
+        )
 
     if st.button("Find Best Route"):
 
@@ -200,14 +397,20 @@ elif selected == "Route Optimization":
             weight='weight'
         )
 
-        st.success(f"Optimal Route: {' → '.join(path)}")
+        st.success(
+            f"Optimal Route: {' → '.join(path)}"
+        )
 
-        st.info(f"Total Distance: {distance}")
+        st.info(
+            f"Total Distance: {distance} km"
+        )
 
-# DRIVER ALLOCATION PAGE
+# DRIVER ALLOCATION
 elif selected == "Driver Allocation":
 
-    st.title("🚗 Driver Allocation AI")
+    st.title("🚗 AI Driver Allocation")
+
+    st.markdown("### Intelligent Driver Dispatch System")
 
     drivers = {
         'Driver 1': 'A',
@@ -247,8 +450,33 @@ elif selected == "Driver Allocation":
         key=driver_distances.get
     )
 
-    st.success(f"Assigned Driver: {best_driver}")
+    st.success(
+        f"Assigned Driver: {best_driver}"
+    )
 
     st.info(
         f"Estimated Arrival Cost: {driver_distances[best_driver]}"
     )
+
+    st.markdown("## 🚘 Driver Distances")
+
+    driver_df = pd.DataFrame({
+        "Driver": list(driver_distances.keys()),
+        "Cost": list(driver_distances.values())
+    })
+
+    fig4 = px.bar(
+        driver_df,
+        x="Driver",
+        y="Cost",
+        color="Driver",
+        title="Driver ETA Comparison"
+    )
+
+    fig4.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="#111827",
+        plot_bgcolor="#111827"
+    )
+
+    st.plotly_chart(fig4, use_container_width=True)
