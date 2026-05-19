@@ -87,9 +87,4 @@ Interactive Dashboard
 
 ---
 
-# 🚀 How to Run the Project
-
-## 1️⃣ Clone Repository
-
-```bash
-git clone YOUR_GITHUB_LINK
+# Author:Yashika Nagdev
